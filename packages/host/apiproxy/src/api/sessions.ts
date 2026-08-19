@@ -152,6 +152,8 @@ export interface ModelCatalogFailure {
 export interface SessionModels {
   /** Model selection for the session's next assembled step. */
   current: ModelSelection
+  /** Previous selection replaced because it disappeared from the configured catalog. */
+  fallbackFrom?: ModelSelection
   /**
    * Whether an adapter currently serves `current.provider`, and therefore
    * whether this session can start a turn at all. Deliberately NOT derivable

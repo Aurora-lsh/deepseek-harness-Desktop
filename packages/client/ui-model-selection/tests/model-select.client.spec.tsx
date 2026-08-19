@@ -22,16 +22,18 @@ const t: ComponentProps<typeof ModelSelect>['t'] = (key, params) => {
 
 const reasoning = {
   efforts: [
-    { id: 'off', name: 'Off' },
+    { id: 'low', name: 'Low' },
+    { id: 'medium', name: 'Medium' },
     { id: 'high', name: 'High' },
-    { id: 'max', name: 'Max', description: 'Largest budget' },
+    { id: 'xhigh', name: 'XHigh' },
   ],
   defaultEffort: 'high',
 }
 
 function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryState {
   return {
-    current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    current: { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'high' },
+    fallbackFrom: null,
     routable: true,
     groups: [{
       id: 'deepseek-official',
@@ -64,25 +66,27 @@ describe('ModelSelect reasoning effort', () => {
     />)
 
     const trigger = screen.getByRole('button', {
-      name: '选择模型，当前 DeepSeek-V4-Flash，推理等级 High',
+      name: '选择模型，当前 DeepSeek-V4-Flash，推理等级 高',
     })
     fireEvent.click(trigger)
-    fireEvent.click(screen.getByRole('menuitem', { name: /推理等级/ }))
-    expect(screen.getAllByRole('menuitemradio').map(item => item.textContent))
-      .toEqual(['Off', 'High', 'MaxLargest budget'])
+    const slider = screen.getByRole('slider', { name: '推理等级' })
+    expect(screen.getByText('低')).toBeTruthy()
+    expect(screen.getByText('中')).toBeTruthy()
+    expect(screen.getAllByText('高')).toHaveLength(2)
+    expect(screen.getByText('极高')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Max/ }))
+    fireEvent.change(slider, { target: { value: '3' } })
     await waitFor(() => {
       expect(select).toHaveBeenCalledWith({
         provider: 'deepseek-official',
         model: 'deepseek-v4-flash',
-        reasoningEffort: 'max',
+        reasoningEffort: 'xhigh',
       })
-      expect(trigger.getAttribute('aria-label')).toBe('选择模型，当前 DeepSeek-V4-Flash，推理等级 Max')
+      expect(trigger.getAttribute('aria-label')).toBe('选择模型，当前 DeepSeek-V4-Flash，推理等级 极高')
     })
   })
 
-  it('offers provider default only when the adapter does not configure a model default', () => {
+  it('disables the slider when the model advertises no product reasoning level', () => {
     const directory = createSnapshotStore(state({
       groups: [{
         id: 'provider',
@@ -105,11 +109,36 @@ describe('ModelSelect reasoning effort', () => {
     />)
 
     fireEvent.click(screen.getByRole('button', {
-      name: '选择模型，当前 Model，推理等级 Default',
+      name: '选择模型，当前 Model，推理等级 自动',
     }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /推理等级/ }))
-    expect(screen.getAllByRole('menuitemradio').map(item => item.textContent))
-      .toEqual(['Default', 'Standard'])
+    expect(screen.getByRole('slider', { name: '推理等级' })).toHaveProperty('disabled', true)
+    expect(screen.getByText('当前模型不支持推理强度设置')).toBeTruthy()
+  })
+
+  it('selects Medium for a new conversation when the exact model supports it', async () => {
+    const directory = createSnapshotStore(state({
+      current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    }))
+    const select = vi.fn(async (selection: ModelSelection) => {
+      directory.set(state({ current: selection }))
+      return true
+    })
+    render(<ModelSelect
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()}
+      select={select}
+      t={t}
+    />)
+
+    await waitFor(() => {
+      expect(select).toHaveBeenCalledWith({
+        provider: 'deepseek-official',
+        model: 'deepseek-v4-flash',
+        reasoningEffort: 'medium',
+      })
+    })
   })
 
   it('prompts for a selection when the current model is no longer advertised', () => {
@@ -133,6 +162,22 @@ describe('ModelSelect reasoning effort', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
     expect(screen.queryByText('removed-model')).toBeNull()
     expect(screen.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash' })).toBeTruthy()
+  })
+
+  it('announces when the host replaces a deleted model with the default', async () => {
+    render(<ModelSelect
+      locked={false}
+      available
+      directory={createSnapshotStore(state({
+        fallbackFrom: { provider: 'deepseek-official', model: 'removed-model' },
+      }))}
+      load={vi.fn()}
+      select={vi.fn().mockResolvedValue(true)}
+      t={t}
+    />)
+
+    const toast = await screen.findByRole('alert')
+    expect(toast.textContent).toContain('原模型 removed-model 已被删除，已切换到默认模型 deepseek-v4-flash')
   })
 
   it('announces a rejected selection as a transient toast and keeps the in-menu strip for loads', async () => {

@@ -1,7 +1,6 @@
 - menu "模型与推理等级":
-  - menuitemradio "Default" [checked]:
-    - text: Default
+  - menuitem "模型 Acme Think":
+    - text: 模型 Acme Think
     - img
-  - menuitemradio "Off"
-  - menuitemradio "High"
-  - menuitemradio "Max"
+  - text: 高级
+  - slider "推理等级": "1"

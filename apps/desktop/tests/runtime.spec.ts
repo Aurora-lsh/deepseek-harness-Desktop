@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isOfficialDeepSeekUrl,
   isRuntimeUrl,
   LOOPBACK_HOST,
   parseRuntimeReadyUrl,
@@ -38,5 +39,14 @@ describe('desktop runtime launch', () => {
     expect(isRuntimeUrl(`${origin}/sessions/1`, origin)).toBe(true)
     expect(isRuntimeUrl('https://example.com/', origin)).toBe(false)
     expect(isRuntimeUrl('not a URL', origin)).toBe(false)
+  })
+
+  it('keeps only HTTPS DeepSeek hosts inside the official Chat view', () => {
+    expect(isOfficialDeepSeekUrl('https://chat.deepseek.com/a/chat/s/123')).toBe(true)
+    expect(isOfficialDeepSeekUrl('https://deepseek.com/')).toBe(true)
+    expect(isOfficialDeepSeekUrl('https://platform.deepseek.com/usage')).toBe(true)
+    expect(isOfficialDeepSeekUrl('https://deepseek.com.example.test/')).toBe(false)
+    expect(isOfficialDeepSeekUrl('http://chat.deepseek.com/')).toBe(false)
+    expect(isOfficialDeepSeekUrl('not a URL')).toBe(false)
   })
 })

@@ -187,12 +187,16 @@ function makeHarness(init?: Partial<ConversationSnapshot>) {
     if (key !== 'conversation.chat.node') return opts?.fallback ?? null
     const nodeOwner = owner as RoutedChatNodeOwner
     const nodeKey = opts?.hookContext as string | undefined
-    const useTurnData: UseChatNodeTurnData = dataKey => props.useSession((snapshot) => {
+    const useTurnData = ((dataKey: string) => props.useSession((snapshot) => {
       const location = nodeKey === undefined ? undefined : snapshot.chat.nodes.get(nodeKey)?.location
+      if (location?.kind === 'step') {
+        const step = (location.step.data as unknown as { get(key: string): unknown }).get(dataKey)
+        if (step !== undefined) return step
+      }
       return location?.kind === 'turn' || location?.kind === 'step'
-        ? location.turn.data.get(dataKey)
+        ? (location.turn.data as unknown as { get(key: string): unknown }).get(dataKey)
         : undefined
-    })
+    })) as UseChatNodeTurnData
     const nodeProps = <Kind extends ChatNode['kind']>(): ChatNodeViewProps<Kind> => (
       { ...props, ...nodeOwner, useTurnData } as unknown as ChatNodeViewProps<Kind>
     )

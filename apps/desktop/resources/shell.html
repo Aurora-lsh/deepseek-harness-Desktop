@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"
+    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek Harness</title>
+    <link rel="stylesheet" href="shell.css">
+  </head>
+  <body>
+    <nav class="rail" aria-label="主导航">
+      <div class="brand" aria-label="DeepSeek Harness">DSH</div>
+      <a class="entry active" data-view="agent" href="dsh-desktop://agent/" aria-current="page">
+        <span class="icon" aria-hidden="true">A</span>
+        <span>Agent</span>
+      </a>
+      <a class="entry" data-view="chat" href="dsh-desktop://chat/">
+        <span class="icon" aria-hidden="true">D</span>
+        <span>Chat</span>
+        <span class="unread" aria-label="有未读回复"></span>
+      </a>
+      <div class="official">官网</div>
+    </nav>
+    <main class="backdrop" aria-hidden="true"></main>
+    <script src="shell.js"></script>
+  </body>
+</html>

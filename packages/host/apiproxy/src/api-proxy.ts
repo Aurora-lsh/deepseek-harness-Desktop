@@ -609,15 +609,6 @@ export interface ApiProxyDefaults {
    * reaches the sessions that have not run a turn yet.
    */
   defaultModelSelection: () => ModelSelection
-  /**
-   * Record a selection as the new default. Either absent, or a closure that
-   * may itself decline — the gateway plugin always passes one, and it no-ops
-   * when the deployment mounts no settings provider or when the write races
-   * service teardown. A switch then stays process-local. A rejection is
-   * reported and swallowed: the switch already applies to its own session,
-   * and undoing it because storage failed would be the worse outcome.
-   */
-  saveDefaultModelSelection?: (selection: ModelSelection) => Promise<void>
   /** Default project directory for new sessions whose create request carries no cwd. */
   cwd: string
   /** Native open-with-default-application; injectable for carrier tests. */
@@ -2213,10 +2204,32 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         const { sessionId } = request.payload
         const found = await agentFor(sessionId)
         if ('error' in found) return err(request, found.error)
-        const current = selectionFor(found.agent).current
         const { groups, failures } = await buildModelCatalog(ctx)
+        const selection = selectionFor(found.agent)
+        let current = selection.current
+        let fallbackFrom: ModelSelection | undefined
+        const configured = groups.some(group => group.id === current.provider
+          && group.models.some(model => model.id === current.model))
+        const lookupFailed = failures.some(failure => failure.id === current.provider)
+        if (!configured && !lookupFailed) {
+          const fallback = defaults.defaultModelSelection()
+          const fallbackConfigured = groups.some(group => group.id === fallback.provider
+            && group.models.some(model => model.id === fallback.model))
+          const differs = fallback.provider !== current.provider || fallback.model !== current.model
+          if (fallbackConfigured && differs) {
+            fallbackFrom = { ...current }
+            current = { ...fallback }
+            selection.current = current
+          }
+        }
         const routable = routeServed(current.provider)
-        return ok(request, { current: { ...current }, routable, groups, failures })
+        return ok(request, {
+          current: { ...current },
+          ...fallbackFrom === undefined ? {} : { fallbackFrom },
+          routable,
+          groups,
+          failures,
+        })
       },
 
       async selectModel(request) {
@@ -2252,13 +2265,6 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
                 : { reasoningEffort: resolved.reasoningEffort },
             }
             selectionFor(found.agent).current = selected
-            try {
-              await defaults.saveDefaultModelSelection?.(selected)
-            } catch (error: unknown) {
-              ctx.logger.warn(
-                `api-proxy: the model switch applies to this session but was not saved as the default: ${String(error)}`,
-              )
-            }
             return ok(request, { selected: { ...selected } })
           } catch (error: unknown) {
             return err(request, {

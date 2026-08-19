@@ -1,11 +1,9 @@
-// Web e2e scenario: a hand-declared model's `reasoningEfforts` reaches the
-// composer's effort pane — the levels a settings profile declares are exactly
-// what the picker offers, and picking one records it with the Agent default.
+// Web e2e scenario: a hand-declared model's canonical `reasoningEfforts`
+// reaches the composer's four-level slider, and a change remains local to the
+// current conversation.
 // Zero model calls: declaring, describing, and switching are settings/llm
 // traffic only, so there is no fixture and a stray stream would fail loud.
-import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
@@ -30,10 +28,7 @@ describe.skipIf(MODE === 'record')('web e2e: declared reasoning efforts reach th
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold({ extraOverlayPath: OVERLAY })
-    // The whole reasoning offer is the profile: key = selectable level, value
-    // = the wire spelling dispatch would send (`max: ultra` renames; the
-    // valueless `off` means "supported, send nothing"). The route sets no
-    // deployment default, so the pane leads with the provider-default entry.
+    // The profile advertises the complete canonical product vocabulary.
     await scaffold.ctx.settings.update(settingsNamespace('llm-pi-ai'), {
       providers: {
         'acme-gateway': {
@@ -43,7 +38,7 @@ describe.skipIf(MODE === 'record')('web e2e: declared reasoning efforts reach th
           models: [{
             id: 'acme-think',
             name: 'Acme Think',
-            reasoningEfforts: { off: null, high: 'high', max: 'ultra' },
+            reasoningEfforts: { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh' },
           }],
         },
       },
@@ -66,26 +61,14 @@ describe.skipIf(MODE === 'record')('web e2e: declared reasoning efforts reach th
     const trigger = page.getByRole('button', { name: /^选择模型/ })
     await trigger.waitFor({ timeout: 15_000 })
     await trigger.click()
-    await page.getByRole('menuitem', { name: /推理等级/ }).click()
-
-    // Declared levels, nothing else: the provider-default entry (the route
-    // configures no `reasoning`), then Off/High/Max — minimal, low, medium,
-    // and xhigh were not declared and must not be offered.
-    const levels = page.getByRole('menuitemradio')
-    await expect.poll(async () => levels.allTextContents(), { timeout: 10_000 })
-      .toEqual(['Default', 'Off', 'High', 'Max'])
+    const slider = page.getByRole('slider', { name: '推理等级' })
+    await expect.poll(() => slider.getAttribute('aria-valuetext'), { timeout: 10_000 }).toBe('中')
     const snapshot = await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
 
-    // Picking a level is the same gesture that saves the default selection, so
-    // the effort lands in the Agent default Settings section beside provider/model.
-    await page.getByRole('menuitemradio', { name: 'High' }).click()
-    await expect.poll(
-      async () => readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8'),
-      { timeout: 10_000 },
-    ).toContain('reasoningEffort: high')
+    await slider.fill('2')
     await expect.poll(() => trigger.getAttribute('aria-label'), { timeout: 10_000 })
-      .toBe('选择模型，当前 Acme Think，推理等级 High')
+      .toBe('选择模型，当前 Acme Think，推理等级 高')
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 

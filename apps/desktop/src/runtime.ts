@@ -55,3 +55,19 @@ export function isRuntimeUrl(value: string, origin: string): boolean {
     return false
   }
 }
+
+/**
+ * Determine whether an HTTPS navigation remains on a DeepSeek-owned host.
+ *
+ * @param value Navigation target or requesting origin.
+ * @returns Whether the URL uses HTTPS and belongs to deepseek.com.
+ */
+export function isOfficialDeepSeekUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:'
+      && (url.hostname === 'deepseek.com' || url.hostname.endsWith('.deepseek.com'))
+  } catch {
+    return false
+  }
+}

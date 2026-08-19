@@ -1,0 +1,147 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  background: #f5f6f8;
+  color: #202124;
+}
+
+.rail {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 0 0 88px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px 12px;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f7f8fa;
+}
+
+.brand {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 34px;
+  margin-bottom: 10px;
+  border-radius: 11px;
+  background: #101114;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+}
+
+.entry {
+  position: relative;
+  display: flex;
+  width: 72px;
+  min-height: 62px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 14px;
+  color: #686d75;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.entry:hover {
+  background: rgba(0, 0, 0, 0.045);
+  color: #202124;
+}
+
+.entry.active {
+  background: #e5ebff;
+  color: #3157d5;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid currentColor;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.unread {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  display: none;
+  width: 8px;
+  height: 8px;
+  border: 2px solid #f7f8fa;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.entry.has-unread .unread {
+  display: block;
+}
+
+.official {
+  margin-top: auto;
+  color: #9aa0a8;
+  font-size: 10px;
+}
+
+.backdrop {
+  flex: 1;
+  background: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #101114;
+    color: #f5f6f8;
+  }
+
+  .rail {
+    border-right-color: rgba(255, 255, 255, 0.08);
+    background: #17191d;
+  }
+
+  .entry {
+    color: #a7abb3;
+  }
+
+  .entry:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+  }
+
+  .entry.active {
+    background: #202b4d;
+    color: #8ca9ff;
+  }
+
+  .unread {
+    border-color: #17191d;
+  }
+
+  .backdrop {
+    background: #101114;
+  }
+}

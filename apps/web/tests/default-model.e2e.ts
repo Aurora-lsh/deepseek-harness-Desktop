@@ -1,8 +1,6 @@
-// Web e2e scenario: switching models in the composer is how this deployment's
-// default is chosen. The gesture writes the shared `agent-default-model` settings section, a
-// session created afterwards starts from it, and a session that already logged
-// a route keeps deriving from its own log — the tier order the gateway
-// resolves on every read.
+// Web e2e scenario: a composer model switch stays local to its conversation.
+// A session created afterwards and a session with a logged route continue to
+// use the shared Agent default.
 // Zero model calls: the switch is settings/llm-domain traffic only, so there
 // is no fixture and a stray stream would fail loud because the adapter registry is empty. Both
 // routes are declared host-side (not through the UI, which has its own
@@ -27,11 +25,11 @@ const OVERLAY = fileURLToPath(new URL('./default-model.overlay.yml', import.meta
 /** The route this scenario starts on, patched over the shipped default. */
 const START_ROUTE = 'origin-gateway'
 const START_MODEL = 'origin-large'
-/** The route the switch lands on, which then becomes the saved default. */
+/** The route the current conversation switches to. */
 const ROUTE = 'acme-gateway'
 const MODEL = 'acme-large'
 
-describe('web e2e: the composer model switch is the default for later sessions', () => {
+describe('web e2e: the composer model switch is local to its conversation', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -94,7 +92,7 @@ describe('web e2e: the composer model switch is the default for later sessions',
     await scaffold?.close()
   })
 
-  it('writes the switched model as the default and leaves a logged session alone', async () => {
+  it('does not rewrite the default and leaves a logged session alone', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-default-model'))
     // A session that has already run a turn, spelled as the fact a turn
     // leaves behind: its own logged route.
@@ -110,19 +108,14 @@ describe('web e2e: the composer model switch is the default for later sessions',
     await page.getByRole('menuitem', { name: /模型/ }).click()
     await page.getByRole('menuitemradio', { name: 'Acme Large' }).click()
 
-    // The switch is what sets the default: the shared Agent-route settings section
-    // now names it, beside the provider profiles the Models page writes.
-    await expect.poll(
-      async () => readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8'),
-      { timeout: 10_000 },
-    ).toContain('agent-default-model:')
     const document = await readFile(join(scaffold.harnessHome, 'settings.yaml'), 'utf8')
-    expect(document).toContain(`provider: ${ROUTE}`)
-    expect(document).toContain(`model: ${MODEL}`)
+    expect(document).not.toContain('agent-default-model:')
+    await expect.poll(() => trigger.getAttribute('aria-label'), { timeout: 10_000 })
+      .toMatch(/Acme Large/)
 
-    // A session created after the switch starts from it...
+    // A later session still starts from the configured Agent default...
     expect(await currentOf(await createSession('default-model-after')))
-      .toEqual({ provider: ROUTE, model: MODEL })
+      .toEqual({ provider: START_ROUTE, model: START_MODEL })
     // ...while the one holding a logged route keeps deriving from its log.
     expect(await currentOf(loggedId)).toEqual({ provider: START_ROUTE, model: START_MODEL })
     expect(tripwire.pageErrors).toEqual([])
@@ -154,8 +147,17 @@ describe('web e2e: the composer model switch is the default for later sessions',
     })
     expect(refused.result).toMatchObject({ ok: false, error: { code: 'model-unavailable' } })
 
-    // The way out stays open. Locking the model seat with everything else
-    // would leave the composer asking for the one thing it prevents.
+    // Restoring one configured route makes the selection path usable again.
+    await scaffold.ctx.settings.replace(settingsNamespace('llm-pi-ai'), {
+      providers: {
+        [ROUTE]: {
+          displayName: 'Acme Gateway',
+          api: 'openai-completions',
+          baseURL: 'https://gateway.acme.example/v1',
+          models: [{ id: MODEL, name: 'Acme Large' }],
+        },
+      },
+    })
     const seat = page.getByRole('button', { name: /^选择模型/ })
     expect(await seat.isEnabled()).toBe(true)
     await seat.click()

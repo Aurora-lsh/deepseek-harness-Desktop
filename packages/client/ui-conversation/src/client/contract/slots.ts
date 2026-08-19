@@ -6,7 +6,7 @@ import type {
   SlotHookFactory, SnapshotSelectorHook,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  CommandNode, CompactionSummaryNode, ConversationSnapshot, ConversationTurnDataMap,
+  CommandNode, CompactionSummaryNode, ConversationSnapshot, ConversationStepDataMap, ConversationTurnDataMap,
   ObservableSnapshot, PendingInteraction, PendingWait, SessionId, ToolCallBlock,
   TurnLocation, WorkspaceId,
 } from '@deepseek-ai/dsh-client-runtime/client'
@@ -340,10 +340,16 @@ export interface AssistantActionOwnerProps {
   messageId: MessageId
 }
 
-/** Hook constrained to business data published on the current Chat Node's Turn. */
-export type UseChatNodeTurnData = <Key extends Extract<keyof ConversationTurnDataMap, string>>(
+type ChatNodeLocationDataKey = Extract<keyof ConversationTurnDataMap | keyof ConversationStepDataMap, string>
+type ChatNodeLocationData<Key extends ChatNodeLocationDataKey> =
+  Key extends keyof ConversationStepDataMap
+    ? ConversationStepDataMap[Key]
+    : Key extends keyof ConversationTurnDataMap ? ConversationTurnDataMap[Key] : never
+
+/** Hook constrained to business data published on the current Chat Node's Step or Turn. */
+export type UseChatNodeTurnData = <Key extends ChatNodeLocationDataKey>(
   key: Key,
-) => Readonly<ConversationTurnDataMap[Key]> | undefined
+) => Readonly<ChatNodeLocationData<Key>> | undefined
 
 /** Slot-level Hook factory used by renderers reading their Node's Turn data. */
 export interface ChatNodeTurnDataInjected {

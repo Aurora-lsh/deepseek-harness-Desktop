@@ -158,6 +158,10 @@ function finalNode(
       step: state.step,
       blocks: toAssistantBlocks(event.data.message.content),
       usage: event.data.usage,
+      provenance: {
+        provider: event.data.message.source.provider,
+        model: event.data.message.source.model,
+      },
       timing: {
         stepStartTime: context.start?.event.time ?? null,
         firstTokenTime: state.firstTokenTime ?? null,

@@ -2,9 +2,9 @@
 
 English | [中文](README.zh.md)
 
-The Windows desktop application for DeepSeek Harness. It creates the native window and starts the existing `dsh --profile web` host on a loopback-only ephemeral port, so the desktop build reuses the Web profile and its plugin composition instead of maintaining a second UI runtime.
+The Windows desktop application for DeepSeek Harness. It starts the existing Web profile on a loopback-only ephemeral port and presents the Agent UI and the retained official DeepSeek Chat site in one native shell.
 
-The Electron renderer has no Node.js integration, enables context isolation and sandboxing, and may navigate only to the local Harness origin. External HTTP(S) links open in the system browser. The local host is stopped before the desktop process exits.
+The local Agent renderer has no Node.js integration, uses context isolation and sandboxing, and may navigate only to the local Harness origin. The official Chat renderer uses a separate persistent Electron partition and may navigate only within official DeepSeek HTTPS hosts. External HTTP(S) links open in the system browser. The local Host stops before the desktop process exits.
 
 ## Development
 
@@ -17,23 +17,31 @@ pnpm --filter @deepseek-ai/dsh-desktop run dev
 
 ## Windows installer
 
-Create an unsigned per-user NSIS installer:
+Create the unsigned per-machine NSIS installer:
 
 ```sh
 pnpm run build
 pnpm --filter @deepseek-ai/dsh-desktop run package:win
 ```
 
-The installer is written to `apps/desktop/dist/`. Production distribution should sign the installer and executable with an organization-controlled Authenticode certificate; the repository does not contain signing credentials.
+The installer is written to `apps/desktop/dist/`. The directory page selects a drive; installation is normalized to `X:\DeepSeek Harness\App`, with application data under `X:\DeepSeek Harness\Data`. A fresh install starts on the system drive, while an upgrade starts on the previous install's drive.
+
+This community release has no Authenticode certificate. Windows may show an unknown-publisher SmartScreen warning; release notes publish SHA-256 hashes so downloaded artifacts can be verified independently.
 
 The package keeps its Node runtime under `resources/app` instead of `app.asar`. The CLI maintains profile fallback links to installed plugin directories, so those targets must be ordinary Windows filesystem paths. Packaging verifies the workspace peer closure and directly includes the Web profile's configuration-loaded plugins before Electron Builder runs.
 
 ## Runtime data
 
-The desktop application shares the normal Harness home with the CLI. On Windows, its runtime log is `%APPDATA%\@deepseek-ai\dsh-desktop\logs\runtime.log`.
+Harness configuration, sessions, plugins, attachments, Electron preferences, logs, and the official-site login partition live below `X:\DeepSeek Harness\Data`. On first 0.2 launch, existing v0.1 Harness and Electron directories are copied, verified, and then removed. A failed migration preserves the old directories. Full uninstall requires a second destructive-data confirmation and removes the Data directory; an in-place update preserves it.
 
-## Known Limitations and Deferred Work
+The runtime log is `X:\DeepSeek Harness\Data\Desktop\logs\runtime.log`.
 
-- **Loopback host transport** — the first desktop package keeps the existing Web HTTP and WebSocket carrier on `127.0.0.1`; an IPC carrier can be added later without changing the client RPC vocabulary.
-- **Windows-only installer** — this app currently publishes only the Windows x64 NSIS target.
-- **Unsigned output** — installers built locally are not trusted by Windows SmartScreen until signed by the release owner.
+## Official DeepSeek Chat
+
+The fixed Chat view loads `https://chat.deepseek.com/` directly. Login, messages, uploads, and downloads remain between the user and DeepSeek. The desktop shell does not inspect or store message content; its preload observes only generation-control state to provide an unread badge and a content-free Windows completion notification. Downloads always display a Save As dialog, media access is limited to official DeepSeek pages, and external links use the default browser.
+
+## Known limitations
+
+- Windows x64 is the only packaged target.
+- The local Agent still uses the existing loopback HTTP and WebSocket carrier.
+- Installers and executables are unsigned and do not establish a SmartScreen reputation.

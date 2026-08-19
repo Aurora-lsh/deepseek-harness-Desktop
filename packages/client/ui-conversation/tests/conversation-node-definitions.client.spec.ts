@@ -12,6 +12,9 @@ import { unknownFallbackDefinition } from '../src/client/conversation-nodes/fall
 import { nextStepInboxDefinition, nextTurnInboxDefinition } from '../src/client/conversation-nodes/inbox.ts'
 import { messageDefinition } from '../src/client/conversation-nodes/message.ts'
 import { retryDefinition } from '../src/client/conversation-nodes/retry.ts'
+import {
+  requestConfigDefinition, requestStepConfigDefinition,
+} from '../src/client/conversation-nodes/request-config.ts'
 import { toolDefinition } from '../src/client/conversation-nodes/tool.ts'
 import { turnErrorDefinition } from '../src/client/conversation-nodes/turn-error.ts'
 import { turnMaxTokensDefinition } from '../src/client/conversation-nodes/turn-max-tokens.ts'
@@ -24,6 +27,8 @@ const DEFINITIONS: readonly ConversationNodeDefinition[] = [
   nextTurnInboxDefinition,
   nextStepInboxDefinition,
   messageDefinition,
+  requestConfigDefinition,
+  requestStepConfigDefinition,
   assistantDefinition,
   toolDefinition,
   commandDefinition,
@@ -118,6 +123,41 @@ function toolResult(callId: string, text: string) {
 }
 
 describe('built-in conversation node Definitions', () => {
+  it('binds the preceding request configuration and final provider provenance to an Assistant step', () => {
+    const value = assembler([
+      at(1, 'turn/start', { turn: 1 }),
+      at(2, 'request/header', {
+        reason: 'initial',
+        header: {
+          config: { provider: 'requested-provider', model: 'requested-model', reasoningEffort: 'xhigh' },
+        },
+      }),
+      at(3, 'step/start', { turn: 1, step: 1 }),
+      at(4, 'assistant/message', {
+        turn: 1,
+        step: 1,
+        message: {
+          ...assistantMessage('assistant-config', 'settled'),
+          source: { kind: 'model', provider: 'actual-provider', model: 'actual-model' },
+        },
+      }, { surfaceOp: 'append' }),
+    ])
+
+    const assistant = node(snapshot(value), 'assistant-step')
+    expect(assistant?.data).toMatchObject({
+      finalNode: {
+        provenance: { provider: 'actual-provider', model: 'actual-model' },
+      },
+    })
+    expect(assistant?.location.kind).toBe('step')
+    if (assistant?.location.kind !== 'step') throw new Error('expected Assistant Step location')
+    expect(assistant.location.step.data.get('assistant-request-config')).toEqual({
+      provider: 'requested-provider',
+      model: 'requested-model',
+      reasoningEffort: 'xhigh',
+    })
+  })
+
   it('keeps one keyed Assistant node while streaming settles and materializes interruption from Location', () => {
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),

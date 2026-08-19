@@ -14,7 +14,7 @@ import type { ViewTab } from './contract/views.ts'
 import type {
   ApprovalWait, ChatNodeTurnDataInjected, ChatScrollPosition, ChatViewInjected, ComposerBarInjected,
   ComposerChainProps, ConversationInjected, ConversationSessionHeaderInjected, ConversationSessionInjected,
-  DetailsInjected,
+  DetailsInjected, UseChatNodeTurnData,
 } from './contract/slots.ts'
 import type { InputNotice } from './input/contract.ts'
 import { createChatStore } from './stores.ts'
@@ -77,13 +77,18 @@ const ABSENT_MENU_LAUNCHER = {
 
 const CHAT_NODE_INJECT: ChatNodeTurnDataInjected = {
   hooks: {
-    turnData: ({ useSession }, nodeKey) => function useTurnData(key) {
-      return useSession((snapshot) => {
+    turnData: ({ useSession }, nodeKey) => {
+      const useLocationData = (key: string): unknown => useSession((snapshot) => {
         const location = snapshot.chat.nodes.get(nodeKey)?.location
+        if (location?.kind === 'step') {
+          const step = (location.step.data as unknown as { get(key: string): unknown }).get(key)
+          if (step !== undefined) return step
+        }
         return location?.kind === 'turn' || location?.kind === 'step'
-          ? location.turn.data.get(key)
+          ? (location.turn.data as unknown as { get(key: string): unknown }).get(key)
           : undefined
       })
+      return useLocationData as UseChatNodeTurnData
     },
   },
 }

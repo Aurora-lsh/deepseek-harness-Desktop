@@ -1,0 +1,18 @@
+.root {
+  min-width: 0;
+}
+
+.metadata {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  color: var(--dsw-alias-label-caption);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.metadata span + span::before {
+  content: '·';
+  margin-right: 6px;
+}
