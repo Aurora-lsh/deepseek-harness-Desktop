@@ -50,15 +50,20 @@ const FIRST_PARTY = new Set([
 export const CLAUDE_AGENT_SDK_PACKAGE = '@anthropic-ai/claude-agent-sdk'
 const CLAUDE_PLATFORM_PACKAGE_PREFIX = `${CLAUDE_AGENT_SDK_PACKAGE}-`
 const CLAUDE_PLATFORM_DECLARED_LICENSE = 'SEE LICENSE IN LICENSE.md'
+/** Windows native Sharp payload included by the desktop installer. */
+export const WINDOWS_SHARP_PACKAGE = '@img/sharp-win32-x64'
+const WINDOWS_SHARP_VERSION = '0.35.3'
+const WINDOWS_SHARP_LICENSE = 'Apache-2.0 AND LGPL-3.0-or-later'
 
 /**
  * Whether a non-permissive runtime declaration has an identity-scoped owner
- * authorization. This does not reclassify its terms as permissive.
+ * authorization. Version and declared-license checks remain separate; this
+ * does not reclassify either package's terms as permissive.
  * @param name - exact npm package identity.
- * @returns true only for the official Claude Agent SDK package.
+ * @returns true only for an explicitly reviewed runtime package identity.
  */
 export function isOwnerAuthorizedRuntime(name: string): boolean {
-  return name === CLAUDE_AGENT_SDK_PACKAGE
+  return name === CLAUDE_AGENT_SDK_PACKAGE || name === WINDOWS_SHARP_PACKAGE
 }
 
 /**
@@ -74,7 +79,9 @@ const OVERRIDES: Record<string, { license?: string; repo?: string }> = {
   '@modelcontextprotocol/server-everything': { license: 'MIT / Apache-2.0', repo: 'https://github.com/modelcontextprotocol/servers' },
   '@modelcontextprotocol/server-filesystem': { license: 'MIT / Apache-2.0', repo: 'https://github.com/modelcontextprotocol/servers' },
   // No repository field in the published manifest.
+  'node-addon-native-custom-loader': { repo: 'https://www.npmjs.com/package/node-addon-native-custom-loader' },
   'node-addon-require-builtin': { repo: 'https://www.npmjs.com/package/node-addon-require-builtin' },
+  'node-addon-require-builtin-win32-x64-msvc': { repo: 'https://www.npmjs.com/package/node-addon-require-builtin-win32-x64-msvc' },
 }
 
 /**
@@ -331,6 +338,27 @@ function collectClaudeDistribution(): ClaudeDistribution {
     )
   }
   return distribution
+}
+
+/** Validate the exact Sharp Windows payload authorized for desktop distribution. */
+function collectWindowsSharpDistribution(): { version: string; license: string } {
+  const manifest = installedManifest(WINDOWS_SHARP_PACKAGE)
+  if (
+    manifest?.name !== WINDOWS_SHARP_PACKAGE
+    || manifest.version !== WINDOWS_SHARP_VERSION
+    || manifest.license !== WINDOWS_SHARP_LICENSE
+  ) {
+    throw new Error(
+      `gen-third-party-notices: installed ${WINDOWS_SHARP_PACKAGE} must be exactly ${WINDOWS_SHARP_VERSION} with declared license ${WINDOWS_SHARP_LICENSE}.`,
+    )
+  }
+  const declared = readManifest('apps/desktop/package.json').optionalDependencies?.[WINDOWS_SHARP_PACKAGE]
+  if (declared !== WINDOWS_SHARP_VERSION) {
+    throw new Error(
+      `gen-third-party-notices: apps/desktop must pin ${WINDOWS_SHARP_PACKAGE} to the reviewed ${WINDOWS_SHARP_VERSION} payload.`,
+    )
+  }
+  return { version: WINDOWS_SHARP_VERSION, license: WINDOWS_SHARP_LICENSE }
 }
 
 /** Normalize a manifest repository/homepage value to a browsable https URL. */
@@ -656,6 +684,17 @@ ${rows.join('\n')}
 `
 }
 
+function renderWindowsSharpDistribution(
+  distribution: { version: string; license: string } | undefined,
+): string {
+  if (distribution === undefined) return ''
+  return `
+## Windows Sharp platform payload
+
+The Windows desktop installer includes \`${WINDOWS_SHARP_PACKAGE}\` ${distribution.version} so the attachment service can load Sharp and its dynamically linked libvips libraries on Windows x64. Distribution authorization is limited to this exact package identity, version, and declared \`${distribution.license}\` terms. The installed package retains its \`LICENSE\`, \`README.md\`, version manifest, and shared libraries; changing any reviewed field requires a new distribution decision.
+`
+}
+
 /**
  * Render the complete notices document.
  * @returns the exact bytes `THIRD_PARTY_NOTICES.md` must hold.
@@ -672,6 +711,11 @@ export function render(): string {
     dep => dep.name === CLAUDE_AGENT_SDK_PACKAGE,
   )
     ? collectClaudeDistribution()
+    : undefined
+  const windowsSharpDistribution = runtimeDeps.some(
+    dep => dep.name === WINDOWS_SHARP_PACKAGE,
+  )
+    ? collectWindowsSharpDistribution()
     : undefined
 
   const nonPermissiveDev = devDeps.filter(dep => !isPermissive(dep.license))
@@ -715,6 +759,7 @@ pnpm applies local patches to the following packages at install time, so shipped
 
 ${patchedLines.join('\n')}
 ${renderClaudeDistribution(claudeDistribution)}
+${renderWindowsSharpDistribution(windowsSharpDistribution)}
 
 ## Development-only npm dependencies
 

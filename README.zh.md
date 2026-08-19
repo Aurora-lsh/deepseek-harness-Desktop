@@ -33,6 +33,16 @@ pnpm install
 pnpm run build
 pnpm dsh web
 ```
+### Windows 桌面应用
+
+仓库包含一个 Electron 桌面壳，复用 Web Profile，并在仅监听回环地址的临时端口上启动 Harness Host。创建未签名的按用户安装 NSIS 安装包：
+
+```sh
+pnpm install
+pnpm run package:desktop:win
+```
+
+安装包写入 `apps/desktop/dist/`。正式发布前应使用 Authenticode 为安装包和可执行文件签名。详见 [`apps/desktop/README.md`](apps/desktop/README.md)。
 
 ## 社区与支持
 

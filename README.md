@@ -33,6 +33,16 @@ pnpm install
 pnpm run build
 pnpm dsh web
 ```
+### Windows desktop application
+
+The repository includes an Electron desktop shell that reuses the Web profile and starts its Harness host on a loopback-only ephemeral port. Build an unsigned per-user NSIS installer with:
+
+```sh
+pnpm install
+pnpm run package:desktop:win
+```
+
+The installer is written to `apps/desktop/dist/`. Production releases should sign the installer and executable with Authenticode before distribution. See [`apps/desktop/README.md`](apps/desktop/README.md).
 
 ## Community and support
 
